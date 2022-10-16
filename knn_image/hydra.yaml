@@ -1,0 +1,27 @@
+default:
+- override hydra/output: local
+- override hydra/launcher: local
+knn:
+  k: 1
+data:
+  logs_folder: null
+  pickle_fn: '/home/vdean/franka_demo/logs.pkl'
+  subsample_period: 1
+  in_dim: 7
+  out_dim: 7
+  tracking: null
+  images:
+    cameras: 
+    - cam0c
+  #   im_h: null
+  #   im_w: null
+  #   per_img_out: null
+  relabel: null
+  # noise: 0.0
+agent:
+  type: knn_image
+  vision_model: 'byol'
+  vision_model_path: '/home/gaoyue/dev/franka_learning/models/byol/BYOL_18v2_fixed_100.pt' # for BYOL only
+  description: ''
+  name: ''
+debug: false

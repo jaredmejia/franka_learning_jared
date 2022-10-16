@@ -1,0 +1,5 @@
+redis
+opencv-python
+pyrealsense2
+torchvision==0.11.3
+clip

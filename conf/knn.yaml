@@ -1,0 +1,39 @@
+agent:
+  type: 'knn'
+  description: ""
+  name: ''
+
+knn:
+  k: 7
+  weights:
+  - 1
+  - 1
+  - 1
+  - 1
+  - 0.8
+  - 0.8
+  - 0.8
+  - 1
+  - 100
+  - 100
+  - 100
+
+data:
+  pickle_fn: '12-07-lift-box.pkl'
+  in_dim: 8
+  out_dim: 8
+  tracking:
+    marker_ids:
+    - 5
+    tracking_cameras:
+    - cam1c
+    - cam2c
+  images:
+    cameras: []
+    im_h: 480
+    im_w: 640
+    per_img_out: 128
+  relabel: null
+  noise: 0.0
+
+debug: False

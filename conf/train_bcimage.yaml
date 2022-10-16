@@ -1,0 +1,39 @@
+default:
+    - override hydra/output: local
+    - override hydra/launcher: local
+
+data:
+  logs_folder: '/home/gaoyuez/dataset-tst/'
+  pickle_fn: '11-18-reach-tags.pkl'
+  subsample_period: 1
+  in_dim: 7
+  out_dim: 7
+  tracking: null
+  images:
+    cameras: # A list of camera images to use, or [] to not use cameras
+      - 'cam0c'
+    im_h: 480
+    im_w: 640
+    per_img_out: 128 # can only be arbitrary when vision_model is 'resnet'
+  relabel:
+    window: 0
+    src: "jointstate"
+  noise: 0.0
+
+agent:
+  type: 'bcimage'
+  vision_model: 'byol'
+  vision_model_path: '/home/gaoyue/dev/franka_learning/models/byol/BYOL_18v2_fixed_100.pt'
+  fix_resnet: True # only effective when vision_model is 'resnet'
+  description: ""
+  name: ''
+
+training:
+  lr: 1e-4
+  seed: 0
+  epochs: 40
+  device: 'cuda:0'
+  batch_size: 4
+  save_every_x_epoch: 10
+
+debug: False
