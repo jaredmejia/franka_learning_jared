@@ -1,0 +1,19 @@
+default:
+- override hydra/output: local
+- override hydra/launcher: local
+knn:
+  k: 1
+data:
+  logs_folder: null
+  extract_dir: '/home/vdean/franka_learning_jared/jared_chopping_exps_extracted'
+  images:
+    cameras: 
+    - cam0c
+    - audio
+  relabel: null
+agent:
+  type: knn_audio_image
+  backbone_cfg: '/home/vdean/jared_contact_mic/avid-glove/config/gloveaudio/avcat-avid-ft-jointloss.yaml'
+  description: ''
+  name: ''
+debug: false
