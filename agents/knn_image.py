@@ -49,7 +49,7 @@ class KNNImage(object):
             # actions.append(path['commands'])
             actions.append(path['actions'])
             print(f'actions: {len(path["actions"])}')
-            data_path = os.path.join('/home/vdean/franka_demo/logs/good_chopping_exps/'+str(path['traj_id']))
+            data_path = os.path.join('/home/vdean/franka_demo/logs/jared_chopping_exps/'+str(path['traj_id']))
             
             for img_file in path['cam0c']:
                 img_path = os.path.join(data_path, img_file)

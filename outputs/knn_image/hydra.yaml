@@ -5,7 +5,7 @@ knn:
   k: 1
 data:
   logs_folder: null
-  pickle_fn: '/home/vdean/franka_learning_shaden/good_chopping_exps.pkl'
+  pickle_fn: '/home/vdean/franka_learning_jared/jared_chopping_exps.pkl'
   subsample_period: 1
   in_dim: 7
   out_dim: 7
