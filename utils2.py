@@ -15,20 +15,21 @@ def validate_images(path, csv_data):
     depth_cam_fn = {i:[] for i in CAMERA_IDS.values()}
 
     for dp_idx, timestamps in enumerate(csv_data['cam']):
+        timestamps = timestamps[16:]
         if pd.isna(timestamps) or len(timestamps.split('-')) != 2:
             for i in CAMERA_IDS.values():
                 color_cam_fn[i].append(np.nan)
                 depth_cam_fn[i].append(np.nan)
             continue
         datapoint = timestamps.split('-')
-        print(path,CAMERA_IDS,datapoint)
+        # print(path,CAMERA_IDS,datapoint)
         for cam_id, i in CAMERA_IDS.items():
             cimage_fn = f"c{i}-{cam_id}-{datapoint[i*2]}-color.jpeg"
             color_cam_fn[i].append(cimage_fn
                 if os.path.isfile(os.path.join(path, cimage_fn))
                 else np.nan
             )
-            dimage_fn = f"c{i}-{cam_id}-{datapoint[i*2+1]}-depth.jpeg"
+            dimage_fn = f"c{i}-{cam_id}-{datapoint[i*2+1]}-depth.png"
             depth_cam_fn[i].append(dimage_fn
                 if os.path.isfile(os.path.join(path, dimage_fn))
                 else np.nan
@@ -52,7 +53,7 @@ def validate_images(path, csv_data):
 
 def get_reward(path):
     try:
-        print(path)
+        # print(path)
         csv_log = os.path.join(path, 'log.csv')
         csv_data = pd.read_csv(csv_log, names=['timestamp','robostate','robocmd', 'reward', 'cam'])
 
