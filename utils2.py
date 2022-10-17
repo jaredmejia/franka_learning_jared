@@ -25,8 +25,9 @@ def validate_images(path, csv_data):
         # print(path,CAMERA_IDS,datapoint)
         for cam_id, i in CAMERA_IDS.items():
             cimage_fn = f"c{i}-{cam_id}-{datapoint[i*2]}-color.jpeg"
+            txt_audio_fn = f"{cimage_fn[:-4]}txt"
             color_cam_fn[i].append(cimage_fn
-                if os.path.isfile(os.path.join(path, cimage_fn))
+                if os.path.isfile(os.path.join(path, cimage_fn)) and os.path.isfile(os.path.join(path, txt_audio_fn))
                 else np.nan
             )
             dimage_fn = f"c{i}-{cam_id}-{datapoint[i*2+1]}-depth.png"
@@ -34,6 +35,7 @@ def validate_images(path, csv_data):
                 if os.path.isfile(os.path.join(path, dimage_fn))
                 else np.nan
             )
+
 
     for i in CAMERA_IDS.values():
         csv_data[f"cam{i}c"] = color_cam_fn[i]
