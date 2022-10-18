@@ -64,7 +64,7 @@ def get_knn_features(dl, fe_model):
     feature_list = []
     fe_model.eval()
     with torch.no_grad():
-        for i, data in tqdm(enumerate(dl)):
+        for i, data in enumerate(dl):
             features, _, _ = fe_model(data)
             feature_list.append(features)
     representations = torch.cat(feature_list, dim=0)

@@ -51,7 +51,7 @@ class KNNImage(object):
             print(f'actions: {len(path["actions"])}')
             data_path = os.path.join('/home/vdean/franka_demo/logs/jared_chopping_exps/'+str(path['traj_id']))
             
-            for img_file in path['cam0c']:
+            for img_file in path['cam0c'][:1]:
                 img_path = os.path.join(data_path, img_file)
                 img_paths.append(img_path)
 
@@ -126,32 +126,34 @@ class KNNImage(object):
         # Sample contains audio and video. Should be a dict so check keys: maybe 'cam0c'=image, 'audio'=audio
         # Save to MP4, load model, etc
 
-        img = sample['cam0c']
-        print(len(sample['audio']))
+        # img = sample['cam0c']
+        # print(len(sample['audio']))
+        print(sample['audio'])
 
-        audio_list = [np.array(list(audio_tuple)) for audio_tuple, _ in sample['audio'][2:]]
-        self.curr_audio_len = len(audio_list) - self.curr_audio_len
-        audio_list = audio_list[:max(4, self.curr_audio_len)]  # ensure length is greater than 256=4*64 franes
-        audio_arr = np.vstack(audio_list).T
+        # audio_list = [np.array(list(audio_tuple)) for audio_tuple, _ in sample['audio'][2:]]
+        # self.curr_audio_len = len(audio_list) - self.curr_audio_len
+        # audio_list = audio_list[:max(4, self.curr_audio_len)]  # ensure length is greater than 256=4*64 franes
+        # audio_arr = np.vstack(audio_list).T
 
-        sample_prepped = self.img_audio_prep(img, audio_arr, predict=True)
-        sample_features = self.get_features(sample_prepped)
+        # sample_prepped = self.img_audio_prep(img, audio_arr, predict=True)
+        # sample_features = self.get_features(sample_prepped)
 
-        knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
+        # knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
 
-        return_action = self.actions[knn_idx[0][0]] ### TODO: works for k=1 only so far!!!
-        print(f'action_idx: {knn_idx[0][0]}')
-        print(knn_idx)
-        print("Closest image:",self.img_paths[knn_idx[0][0]])
+        # return_action = self.actions[knn_idx[0][0]] ### TODO: works for k=1 only so far!!!
+        # print(f'action_idx: {knn_idx[0][0]}')
+        # print(knn_idx)
+        # print("Closest image:",self.img_paths[knn_idx[0][0]])
 
-        actions = [self.actions[i] for i in knn_idx[0]]
-        weights = [-1*(knn_dis[0][i]) for i in range(self.k)]
-        weights = special.softmax(weights)
-        return_action = np.zeros(7)
-        for i in range(self.k):
-            return_action += weights[i] * actions[i]
+        # actions = [self.actions[i] for i in knn_idx[0]]
+        # weights = [-1*(knn_dis[0][i]) for i in range(self.k)]
+        # weights = special.softmax(weights)
+        # return_action = np.zeros(7)
+        # for i in range(self.k):
+        #     return_action += weights[i] * actions[i]
 
-        return return_action
+        # return return_action
+        return np.array([0.142, 0.613, -0.1899, -0.6505, 0.0947, -0.3041, 0.522])
         
 def crop_and_resize(img):
     #im1 = img.crop((50, 0, 450, 385))
