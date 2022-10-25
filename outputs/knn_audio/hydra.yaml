@@ -5,15 +5,15 @@ knn:
   k: 1
 data:
   logs_folder: null
-  extract_dir: '/home/vdean/franka_learning_jared/jared_chopping_exps_extracted/image_cat'
+  extract_dir: '/home/vdean/franka_learning_jared/jared_chopping_exps_extracted/audio_cat'
   images:
     cameras: 
     - cam0c
     - audio
   relabel: null
 agent:
-  type: knn_image
-  backbone_cfg: '/home/vdean/jared_contact_mic/avid-glove/config/gloveaudio/avcat-avid-ft-video.yaml'
+  type: knn_audio
+  backbone_cfg: '/home/vdean/jared_contact_mic/avid-glove/config/gloveaudio/avcat-avid-ft-audio.yaml'
   description: ''
   name: ''
 debug: false

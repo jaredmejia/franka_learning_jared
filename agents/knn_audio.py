@@ -16,12 +16,12 @@ from scipy import special
 sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
 
 # avid-glove imports
-from inference import LivePrepVideo, get_feature_extractor
+from inference import LivePrepAudio, get_feature_extractor
 from main import LightningModel
 from utils import misc
 
 
-class KNNImage(object):
+class KNNAudio(object):
     def __init__(self, k, backbone_cfg, extract_dir, device="cuda:0"):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
@@ -30,7 +30,7 @@ class KNNImage(object):
             os.path.join(cfg.save_path, cfg.name, "checkpoints/last.ckpt")
         )
         self.fe_model = get_feature_extractor(model.model, unimodal=True).to(device)
-        self.img_prep = LivePrepVideo(
+        self.audio_prep = LivePrepAudio(
             db_cfg=cfg.dataset, image_paths=None, device=device
         )
 
@@ -43,7 +43,7 @@ class KNNImage(object):
         self.k = k
         self.device = device
         self.num_cat = 8
-        self.image_window = deque([])
+        self.audio_window = deque([])
         self.start_position = np.array(
             [0.142, 0.613, -0.1899, -0.6505, 0.0947, -0.3041, 0.522]
         )
@@ -55,17 +55,18 @@ class KNNImage(object):
         return features.cpu()
 
     def predict(self, sample):
-        img = sample["cam0c"]
-        self.image_window.append(img)
+        audio_tuple, _ = sample["audio"]
+        audio_arr = np.array(list(audio_tuple), dtype=np.float64).T
+        self.audio_window.append(audio_arr)
 
-        if len(self.image_window) < self.num_cat + 1:
+        if len(self.audio_window) < self.num_cat + 1:
             print(f"returning to starting position")
             return self.start_position
         else:
-            self.image_window.popleft()
+            self.audio_window.popleft()
 
-        img_input = list(self.image_window)
-        sample_prepped = self.img_prep(img_input, predict=True)
+        audio_input = np.concatenate(list(self.audio_window), axis=1)
+        sample_prepped = self.audio_prep(audio_input, predict=True)
         sample_features = self.get_features(sample_prepped)
 
         knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
@@ -91,9 +92,9 @@ def identity_transform(img):
 
 
 def _init_agent_from_config(config, device="cpu"):
-    print("Loading KNNImage................")
+    print("Loading KNNAudio................")
     transforms = identity_transform
-    knn_agent = KNNImage(
+    knn_agent = KNNAudio(
         config.knn.k, config.agent.backbone_cfg, config.data.extract_dir
     )
     return knn_agent, transforms
