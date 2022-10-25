@@ -5,7 +5,7 @@ knn:
   k: 1
 data:
   logs_folder: null
-  extract_dir: '/home/vdean/franka_learning_jared/jared_chopping_exps_extracted'
+  extract_dir: '/home/vdean/franka_learning_jared/jared_chopping_exps_extracted/audio_image_single'
   images:
     cameras: 
     - cam0c

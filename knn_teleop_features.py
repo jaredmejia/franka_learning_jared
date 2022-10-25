@@ -14,7 +14,7 @@ from tqdm import tqdm
 sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
 
 # avid-glove imports
-from inference import LivePrep, get_feature_extractor
+from inference import LivePrep, LivePrepCat, get_feature_extractor
 from main import LightningModel
 from utils import misc
 
@@ -40,8 +40,15 @@ parser.add_argument(
     required=True,
     help="Directory to save fitted KNN model and corresponding actions to",
 )
-parser.add_argument("--device", default="cuda:0")
-parser.add_argument("--batch_size", default=256)
+parser.add_argument(
+    "--num_images_cat",
+    default=1,
+    type=int,
+    help="If greater than 1, combines multiple images/audio to emulate video (as opposed to single frame passed to model)"
+)
+parser.add_argument("--batch_size", default=1024)
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def get_teleop_data(teleop_paths, teleop_dir):
@@ -60,11 +67,42 @@ def get_teleop_data(teleop_paths, teleop_dir):
     return actions, img_paths
 
 
+def get_teleop_data_cat(teleop_paths, teleop_dir, num_images_cat=8):
+    actions = []
+    img_path_lists = []
+    for path in teleop_paths:
+        data_path = os.path.join(teleop_dir, path["traj_id"])
+        traj_img_paths = [os.path.join(data_path, img_file) for img_file in path["cam0c"]]
+        for i in range(num_images_cat, len(traj_img_paths)):
+            # taking chunks of size num_cat_images
+            img_path_cat = traj_img_paths[i-num_images_cat:i]  
+            img_path_lists.append(img_path_cat)
+        
+        actions.append(path["actions"][num_images_cat:])
+    
+    actions = np.vstack(actions)
+
+    return actions, img_path_lists
+
+
+def collate_fn(batch):
+    batched_audio, batched_video = [], []
+    for data in batch:
+        batched_audio.append(data['audio'])
+        batched_video.append(data['video'])
+
+    batched_audio = torch.stack(batched_audio, dim=0).to(device)
+    batched_video = torch.stack(batched_video, dim=0).to(device)
+    batched_data = {'video': batched_video, 'audio': batched_audio}
+
+    return batched_data
+
+
 def get_knn_features(dl, fe_model):
     feature_list = []
     fe_model.eval()
     with torch.no_grad():
-        for i, data in enumerate(dl):
+        for i, data in tqdm(enumerate(dl)):
             features, _, _ = fe_model(data)
             feature_list.append(features)
     representations = torch.cat(feature_list, dim=0)
@@ -78,17 +116,27 @@ def main():
     model = LightningModel.load_from_checkpoint(
         os.path.join(backbone_cfg.save_path, backbone_cfg.name, "checkpoints/last.ckpt")
     )
-    fe_model = get_feature_extractor(model.model, unimodal=False).to(args.device)
+    fe_model = get_feature_extractor(model.model, unimodal=False).to(device)
 
     with open(args.teleop_pickle, "rb") as f:
         teleop_paths = pickle.load(f)
 
-    actions, img_paths = get_teleop_data(teleop_paths, args.teleop_dir)
-    print(f"Total number of images: {len(img_paths)}")
-    print(f"Actions shape: {actions.shape}")
+    if args.num_images_cat > 1:
+        actions, img_path_lists = get_teleop_data_cat(teleop_paths, args.teleop_dir, args.num_images_cat)
+        print(f"Total number of samples: {len(img_path_lists)}")
+        print(f"Actions shape: {actions.shape}")
 
-    img_audio_prep = LivePrep(backbone_cfg.dataset, img_paths, args.device)
-    dl = DataLoader(dataset=img_audio_prep, batch_size=args.batch_size, shuffle=False)
+        img_audio_prep = LivePrepCat(backbone_cfg.dataset, img_path_lists, device=device)
+    else:
+        actions, img_paths = get_teleop_data(teleop_paths, args.teleop_dir)
+        print(f"Total number of images: {len(img_paths)}")
+        print(f"Actions shape: {actions.shape}")
+
+        img_audio_prep = LivePrep(backbone_cfg.dataset, image_paths=img_paths, device=device)
+
+    dl = DataLoader(
+        dataset=img_audio_prep, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn
+    )
 
     representations = get_knn_features(dl, fe_model)
     print(f"Embeddings shape: {representations.shape}")
