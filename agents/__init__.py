@@ -41,6 +41,10 @@ def init_agent_from_config(config, device='cpu', normalization=None):
     if agent_type == 'knn_image':
         from .knn_image import _init_agent_from_config
         return _init_agent_from_config(config, device)
+    
+    if agent_type == 'knn_audio':
+        from .knn_audio import _init_agent_from_config
+        return _init_agent_from_config(config, device)
 
     if agent_type == 'knn_audio_image':
         from .knn_audio_image import _init_agent_from_config

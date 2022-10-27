@@ -1,5 +1,6 @@
 from collections import deque
 from sklearn.neighbors import KDTree
+from .knn_audio_image import KNNAudioImage
 import argparse
 import joblib
 import numpy as np
@@ -21,8 +22,8 @@ from main import LightningModel
 from utils import misc
 
 
-class KNNAudio(object):
-    def __init__(self, k, backbone_cfg, extract_dir, device="cuda:0"):
+class KNNAudio(KNNAudioImage):
+    def __init__(self, k, backbone_cfg, extract_dir, H=1, device="cuda:0"):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
         print(f"cfg save paths: {cfg.save_path}")
@@ -31,16 +32,15 @@ class KNNAudio(object):
         )
         self.fe_model = get_feature_extractor(model.model, unimodal=True).to(device)
         self.audio_prep = LivePrepAudio(
-            db_cfg=cfg.dataset, image_paths=None, device=device
+            db_cfg=cfg.dataset, image_path_lists=None, device=device
         )
 
-        # loading fitted knn
-        knn_model_path = os.path.join(extract_dir, "knn_model.pkl")
-        actions_path = os.path.join(extract_dir, "actions.txt")
-
-        self.KDTree = joblib.load(knn_model_path)
-        self.actions = np.loadtxt(actions_path)
+        self.KDTree, self.actions, self.traj_ids = self.load_expert(extract_dir)
         self.k = k
+        self.H = H  # horizon length
+        self.action_idx = 0  # 0 -> 50
+        self.traj_id = None
+
         self.device = device
         self.num_cat = 8
         self.audio_window = deque([])
@@ -48,43 +48,26 @@ class KNNAudio(object):
             [0.142, 0.613, -0.1899, -0.6505, 0.0947, -0.3041, 0.522]
         )
 
-    def get_features(self, input_prepped):
-        self.fe_model.eval()
-        with torch.no_grad():
-            features = self.fe_model(input_prepped)
-        return features.cpu()
-
-    def predict(self, sample):
+    def get_features(self, sample):
+        print(f"using audio features only")
         audio_tuple, _ = sample["audio"]
         audio_arr = np.array(list(audio_tuple), dtype=np.float64).T
+
         self.audio_window.append(audio_arr)
 
         if len(self.audio_window) < self.num_cat + 1:
-            print(f"returning to starting position")
-            return self.start_position
+            return None
         else:
             self.audio_window.popleft()
 
         audio_input = np.concatenate(list(self.audio_window), axis=1)
         sample_prepped = self.audio_prep(audio_input, predict=True)
-        sample_features = self.get_features(sample_prepped)
 
-        knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
-
-        return_action = self.actions[
-            knn_idx[0][0]
-        ]  ### TODO: works for k=1 only so far!!!
-        print(f"action_idx: {knn_idx[0][0]}")
-        print(knn_idx)
-
-        actions = [self.actions[i] for i in knn_idx[0]]
-        weights = [-1 * (knn_dis[0][i]) for i in range(self.k)]
-        weights = special.softmax(weights)
-        return_action = np.zeros(7)
-        for i in range(self.k):
-            return_action += weights[i] * actions[i]
-
-        return return_action
+        self.fe_model.eval()
+        with torch.no_grad():
+            features = self.fe_model(sample_prepped)
+        sample_features = features.cpu()
+        return sample_features
 
 
 def identity_transform(img):
@@ -95,6 +78,9 @@ def _init_agent_from_config(config, device="cpu"):
     print("Loading KNNAudio................")
     transforms = identity_transform
     knn_agent = KNNAudio(
-        config.knn.k, config.agent.backbone_cfg, config.data.extract_dir
+        k=config.knn.k,
+        backbone_cfg=config.agent.backbone_cfg,
+        extract_dir=config.data.extract_dir,
+        H=config.knn.H,
     )
     return knn_agent, transforms

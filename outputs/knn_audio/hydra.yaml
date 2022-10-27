@@ -3,6 +3,7 @@ default:
 - override hydra/launcher: local
 knn:
   k: 1
+  H: 1
 data:
   logs_folder: null
   extract_dir: '/home/vdean/franka_learning_jared/jared_chopping_exps_extracted/audio_cat'
