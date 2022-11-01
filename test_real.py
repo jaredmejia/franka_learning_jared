@@ -162,9 +162,10 @@ if __name__ == "__main__":
     if cfg.data.subsample_period != {}:
         update_freq = STATE_UPDATE_FREQ / cfg.data.subsample_period
     
+    log_folder = os.path.join(cfg['saved_folder'], f"exp_H-{cfg['knn']['H']}_k-{cfg['knn']['k']}")
     run_demo(callback_func, params={
         'ip_address': args.server_ip,
-        'log_folder': 'outputs', # TODO: add agent type as subdirectory for log_folder?
+        'log_folder': log_folder,
         'agent_cfg': cfg,
         'shuffle_goals': shuffle_goals,
         'gripper': False,

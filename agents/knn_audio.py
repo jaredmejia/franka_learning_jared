@@ -14,8 +14,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from scipy import special
 
-sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
+sys.path.insert(1, "/home/vdean/franka_learning_jared")
+from knn_teleop_features import load_model
 
+sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
 # avid-glove imports
 from inference import LivePrepAudio, get_feature_extractor
 from main import LightningModel
@@ -23,13 +25,11 @@ from utils import misc
 
 
 class KNNAudio(KNNAudioImage):
-    def __init__(self, k, backbone_cfg, extract_dir, H=1, device="cuda:0"):
+    def __init__(self, k, backbone_cfg, extract_dir, H=1, finetuned=True, device="cuda:0"):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
         print(f"cfg save paths: {cfg.save_path}")
-        model = LightningModel.load_from_checkpoint(
-            os.path.join(cfg.save_path, cfg.name, "checkpoints/last.ckpt")
-        )
+        model = load_model(cfg, finetuned)
         self.fe_model = get_feature_extractor(model.model, unimodal=True).to(device)
         self.audio_prep = LivePrepAudio(
             db_cfg=cfg.dataset, image_path_lists=None, device=device
@@ -49,7 +49,6 @@ class KNNAudio(KNNAudioImage):
         )
 
     def get_features(self, sample):
-        print(f"using audio features only")
         audio_tuple, _ = sample["audio"]
         audio_arr = np.array(list(audio_tuple), dtype=np.float64).T
 
@@ -66,7 +65,7 @@ class KNNAudio(KNNAudioImage):
         self.fe_model.eval()
         with torch.no_grad():
             features = self.fe_model(sample_prepped)
-        sample_features = features.cpu()
+        sample_features = features.detach().cpu()
         return sample_features
 
 
@@ -77,10 +76,12 @@ def identity_transform(img):
 def _init_agent_from_config(config, device="cpu"):
     print("Loading KNNAudio................")
     transforms = identity_transform
+    finetuned = config.agent.finetuned.lower() == 'true'
     knn_agent = KNNAudio(
         k=config.knn.k,
         backbone_cfg=config.agent.backbone_cfg,
         extract_dir=config.data.extract_dir,
         H=config.knn.H,
+        finetuned=finetuned
     )
     return knn_agent, transforms

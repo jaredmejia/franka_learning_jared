@@ -13,8 +13,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from scipy import special
 
-sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
+sys.path.insert(1, "/home/vdean/franka_learning_jared")
+from knn_teleop_features import load_model
 
+sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
 # avid-glove imports
 from inference import LivePrep, get_feature_extractor
 from main import LightningModel
@@ -22,13 +24,10 @@ from utils import misc
 
 
 class KNNAudioImage(object):
-    def __init__(self, k, backbone_cfg, extract_dir, H=1, device="cuda:0"):
+    def __init__(self, k, backbone_cfg, extract_dir, H=1, finetuned=True, device="cuda:0"):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
-        print(f"cfg save paths: {cfg.save_path}")
-        model = LightningModel.load_from_checkpoint(
-            os.path.join(cfg.save_path, cfg.name, "checkpoints/last.ckpt")
-        )
+        model = load_model(cfg, finetuned)
         self.fe_model = get_feature_extractor(model.model, unimodal=False).to(device)
         self.img_audio_prep = LivePrep(
             db_cfg=cfg.dataset, image_paths=None, device=device
@@ -80,7 +79,7 @@ class KNNAudioImage(object):
         self.fe_model.eval()
         with torch.no_grad():
             features, _, _ = self.fe_model(sample_prepped)
-        sample_features = features.cpu()
+        sample_features = features.detach().cpu()
         return sample_features
 
     def predict(self, sample):
@@ -109,8 +108,7 @@ class KNNAudioImage(object):
                     return_action += weights[i] * k_actions[i]
         else:  # open loop
             # begin trajectory if previous horizon reached, or first trajectory
-            if self.traj_id is None:
-                print(f"action_idx: {self.action_idx}")
+            if self.traj_id is None or self.action_idx >= self.H:
                 sample_features = self.get_features(sample)
 
                 if sample_features is None:
@@ -120,7 +118,7 @@ class KNNAudioImage(object):
                 knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
                 self.traj_id, self.start_action_idx = self.traj_ids[knn_idx[0][0]]
                 self.action_idx = 0
-                print(f"Beginning trajectory: {self.traj_id}")
+                # print(f"Beginning trajectory: {self.traj_id}")
 
             if (
                 self.action_idx + self.start_action_idx
@@ -135,7 +133,7 @@ class KNNAudioImage(object):
                     == self.actions[self.traj_id].shape[0]
                     or self.action_idx >= self.H
                 ):
-                    print(f"Finished KNN trajectory")
+                    # print(f"Finished KNN trajectory")
                     self.traj_id = None
 
         return return_action
@@ -148,10 +146,18 @@ def identity_transform(img):
 def _init_agent_from_config(config, device="cpu"):
     print("Loading KNNAudioImage................")
     transforms = identity_transform
+    finetuned = config.agent.finetuned.lower() == 'true'
     knn_agent = KNNAudioImage(
         k=config.knn.k,
         backbone_cfg=config.agent.backbone_cfg,
         extract_dir=config.data.extract_dir,
         H=config.knn.H,
+        finetuned=finetuned
     )
     return knn_agent, transforms
+
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()
