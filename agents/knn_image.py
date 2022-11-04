@@ -25,11 +25,11 @@ from utils import misc
 
 
 class KNNImage(KNNAudioImage):
-    def __init__(self, k, backbone_cfg, extract_dir, H=1, finetuned=True, device="cuda:0"):
+    def __init__(self, k, backbone_cfg, extract_dir, H=1, pretraining='finetuned', device="cuda:0"):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
         print(f"cfg save paths: {cfg.save_path}")
-        model = load_model(cfg, finetuned)
+        model = load_model(cfg, pretraining)
         self.fe_model = get_feature_extractor(model.model, unimodal=True).to(device)
         self.img_prep = LivePrepVideo(
             db_cfg=cfg.dataset, image_path_lists=None, device=device
@@ -79,7 +79,6 @@ def _init_agent_from_config(config, device="cpu"):
         k=config.knn.k,
         backbone_cfg=config.agent.backbone_cfg,
         extract_dir=config.data.extract_dir,
-        H=config.knn.H,
-        finetuned=finetuned
+        H=config.knn.H
     )
     return knn_agent, transforms

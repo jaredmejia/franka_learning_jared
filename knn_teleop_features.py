@@ -1,4 +1,3 @@
-from curses import raw
 from sklearn.neighbors import KDTree
 import argparse
 import joblib
@@ -58,14 +57,19 @@ parser.add_argument(
     default=None,
     help="If None, KNN is fit on features extracted from NN model, otherwise KNN is fit on type of raw input (audio, image, audio-image)",
 )
-parser.add_argument("--pretraining", default='finetuned', type=bool)
+parser.add_argument(
+    "--pretraining",
+    default="finetuned",
+    choices=["finetuned", "non-finetuned", "random"],
+    type=str,
+)
 parser.add_argument("--save_knn", default=False, type=bool)
 parser.add_argument("--unimodal", default=False, type=bool)
 parser.add_argument("--batch_size", default=512)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-AVID_DIR = '/home/vdean/jared_contact_mic/avid-glove/'
+AVID_DIR = "/home/vdean/jared_contact_mic/avid-glove/"
 
 
 def get_teleop_data(teleop_paths, teleop_dir, num_images_cat=8):
@@ -121,9 +125,9 @@ def collate_fn_audio(batch):
 def get_knn_features_raw(img_paths, raw_modality):
     raise NotImplementedError
 
-    if raw_modality == 'image':
+    if raw_modality == "image":
         pass
-    elif raw_modality == 'audio':
+    elif raw_modality == "audio":
         pass
     else:  # raw_modality == 'audio-image'
         pass
@@ -143,31 +147,49 @@ def get_knn_features_model(dl, fe_model, unimodal=False):
     representations = torch.cat(feature_list, dim=0)
     return representations.cpu()
 
-def load_model(cfg, finetuned):
-    if finetuned:
+
+def load_model(cfg, pretraining="finetuned"):
+    if pretraining == "finetuned":
         checkpoint_path = os.path.join(cfg.save_path, cfg.name, "checkpoints/last.ckpt")
+        print(f"Loading: {checkpoint_path}")
         model = LightningModel.load_from_checkpoint(checkpoint_path)
+
+    elif pretraining == "random":
+        model = LightningModel(cfg)
+        random_pt = os.path.join(AVID_DIR, "models/avid/ckpt/AVID_random.pt")
+        print(f"Loading: {random_pt}")
+        model.model.load_state_dict(torch.load(random_pt))
     else:
         model = LightningModel(cfg)
         pretrained_checkpoint = os.path.join(AVID_DIR, cfg.model.checkpoint)
-        
-        print(f'loading: {pretrained_checkpoint}')
-        ckp = torch.load(pretrained_checkpoint, map_location='cpu')['model']
 
-        if cfg.criterion.mode == 'unimodal':
-            if cfg.model.args.modality == 'video':
-                ckp_prefix = 'module.video_model.'
-            elif cfg.model.args.modality == 'audio':
-                ckp_prefix = 'module.audio_model.'
+        print(f"loading: {pretrained_checkpoint}")
+        ckp = torch.load(pretrained_checkpoint, map_location="cpu")["model"]
+
+        if cfg.criterion.mode == "unimodal":
+            if cfg.model.args.modality == "video":
+                ckp_prefix = "module.video_model."
+            elif cfg.model.args.modality == "audio":
+                ckp_prefix = "module.audio_model."
             else:
-                raise ValueError('Unknown modality.')
-            unimodal_model_ckp = {k[len(ckp_prefix):]: ckp[k] for k in ckp if k.startswith(ckp_prefix)}
+                raise ValueError("Unknown modality.")
+            unimodal_model_ckp = {
+                k[len(ckp_prefix) :]: ckp[k] for k in ckp if k.startswith(ckp_prefix)
+            }
             model.model.unimodal_model.load_state_dict(unimodal_model_ckp)
             del unimodal_model_ckp
         else:
-            visual_model_ckp = {k[len('module.video_model.'):]: ckp[k] for k in ckp if k.startswith('module.video_model.')}
+            visual_model_ckp = {
+                k[len("module.video_model.") :]: ckp[k]
+                for k in ckp
+                if k.startswith("module.video_model.")
+            }
             model.model.visual_model.load_state_dict(visual_model_ckp)
-            audio_model_ckp = {k[len('module.audio_model.'):]: ckp[k] for k in ckp if k.startswith('module.audio_model.')}
+            audio_model_ckp = {
+                k[len("module.audio_model.") :]: ckp[k]
+                for k in ckp
+                if k.startswith("module.audio_model.")
+            }
             model.model.audio_model.load_state_dict(audio_model_ckp)
             del visual_model_ckp, audio_model_ckp, ckp
     return model
@@ -177,8 +199,7 @@ def main():
     args = parser.parse_args()
 
     backbone_cfg = misc.convert2namespace(yaml.safe_load(open(args.backbone_cfg)))
-    finetuned = args.finetuned.lower() == 'true'
-    model = load_model(backbone_cfg, finetuned=finetuned)
+    model = load_model(backbone_cfg, args.pretraining)
 
     fe_model = get_feature_extractor(model.model, unimodal=args.unimodal).to(device)
 
@@ -217,7 +238,7 @@ def main():
                         backbone_cfg.dataset, image_path_lists=img_paths, device=device
                     )
                     collate_fn = collate_fn_joint
-            else:  
+            else:
                 prep_data = LivePrep(
                     backbone_cfg.dataset, image_paths=img_paths, device=device
                 )
@@ -230,7 +251,9 @@ def main():
                 collate_fn=collate_fn,
             )
 
-            representations = get_knn_features_model(dl, fe_model, unimodal=args.unimodal)
+            representations = get_knn_features_model(
+                dl, fe_model, unimodal=args.unimodal
+            )
             print(f"Embeddings shape: {representations.shape}")
 
         knn_model = KDTree(data=representations)

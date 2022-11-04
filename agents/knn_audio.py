@@ -25,11 +25,11 @@ from utils import misc
 
 
 class KNNAudio(KNNAudioImage):
-    def __init__(self, k, backbone_cfg, extract_dir, H=1, finetuned=True, device="cuda:0"):
+    def __init__(self, k, backbone_cfg, extract_dir, H=1, pretraining='finetuned', device="cuda:0"):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
         print(f"cfg save paths: {cfg.save_path}")
-        model = load_model(cfg, finetuned)
+        model = load_model(cfg, pretraining)
         self.fe_model = get_feature_extractor(model.model, unimodal=True).to(device)
         self.audio_prep = LivePrepAudio(
             db_cfg=cfg.dataset, image_path_lists=None, device=device

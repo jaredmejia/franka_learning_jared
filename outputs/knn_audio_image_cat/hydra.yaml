@@ -15,7 +15,7 @@ data:
 agent:
   type: knn_audio_image
   backbone_cfg: '/home/vdean/jared_contact_mic/avid-glove/config/gloveaudio/avcat-avid-ft-jointloss.yaml'
-  finetuned: true
+  pretraining: 'finetuned'
   description: ''
   name: ''
 debug: false

@@ -24,10 +24,10 @@ from utils import misc
 
 
 class KNNAudioImage(object):
-    def __init__(self, k, backbone_cfg, extract_dir, H=1, finetuned=True, device="cuda:0"):
+    def __init__(self, k, backbone_cfg, extract_dir, H=1, pretraining='finetuned', device="cuda:0"):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
-        model = load_model(cfg, finetuned)
+        model = load_model(cfg, pretraining)
         self.fe_model = get_feature_extractor(model.model, unimodal=False).to(device)
         self.img_audio_prep = LivePrep(
             db_cfg=cfg.dataset, image_paths=None, device=device
@@ -146,13 +146,12 @@ def identity_transform(img):
 def _init_agent_from_config(config, device="cpu"):
     print("Loading KNNAudioImage................")
     transforms = identity_transform
-    finetuned = config.agent.finetuned.lower() == 'true'
     knn_agent = KNNAudioImage(
         k=config.knn.k,
         backbone_cfg=config.agent.backbone_cfg,
         extract_dir=config.data.extract_dir,
         H=config.knn.H,
-        finetuned=finetuned
+        pretraining=config.agent.pretraining
     )
     return knn_agent, transforms
 
