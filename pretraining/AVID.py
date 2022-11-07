@@ -70,6 +70,8 @@ def _load_model(model_name, cfg):
 
 
 def _load_transforms(model_name, cfg):
+    transforms = {"video": None, "audio": None}
+
     video_transform = preprocessing.__dict__[cfg.video_transform](
         **cfg.video_transform_args.__dict__, augment=False
     )
@@ -78,10 +80,10 @@ def _load_transforms(model_name, cfg):
     )
 
     if model_name == "avid-ft-audio":
-        transforms = {"video": None, "audio": audio_transform}
+        transforms["audio"] = audio_transform
     elif model_name == "avid-ft-video":
-        transforms = {"video": video_transform, "audio": None}
+        transforms["video"] = video_transform
     else:
-        transforms = {"video": video_transform, "audio": audio_transform}
-
+        transforms["audio"] = audio_transform
+        transforms["video"] = video_transform
     return transforms
