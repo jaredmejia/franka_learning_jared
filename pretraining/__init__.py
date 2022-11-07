@@ -34,7 +34,11 @@ def load_encoder(encoder_name, cfg):
     # ============================================================
     elif encoder_name == "byol":
         from .BYOL import _load_encoder
-
+    # ============================================================
+    # ResNet50
+    # ============================================================
+    elif encoder_name == "resnet50":
+        from .resnet import _load_encoder
     else:
         print("Model not implemented")
         raise NotImplementedError
@@ -56,7 +60,11 @@ def load_transforms(encoder_name, cfg):
     # ============================================================
     elif encoder_name == "byol":
         from .BYOL import _load_transforms
-
+    # ============================================================
+    # ResNet50
+    # ============================================================
+    elif encoder_name == "resnet50":
+        from .resnet import _load_transforms
     else:
         print("Model not implemented")
         raise NotImplementedError
