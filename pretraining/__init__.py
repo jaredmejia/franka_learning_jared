@@ -17,7 +17,7 @@ MODEL_LIST = [
     "avid-scratch",
     "avid-rand",
     "byol-audio-vid-cat",
-    "xdc",
+    "gdt",
 ]
 
 

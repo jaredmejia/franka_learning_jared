@@ -24,7 +24,15 @@ from utils import misc
 
 
 class KNNAudioImage(object):
-    def __init__(self, k, backbone_cfg, extract_dir, H=1, pretraining='finetuned', device="cuda:0"):
+    def __init__(
+        self,
+        k,
+        backbone_cfg,
+        extract_dir,
+        H=1,
+        pretraining="finetuned",
+        device="cuda:0",
+    ):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
         model = load_model(cfg, pretraining)
@@ -58,7 +66,7 @@ class KNNAudioImage(object):
             traj_ids = pickle.load(f)
         return knn_model, actions, traj_ids
 
-    def get_features(self, sample):
+    def update_window(self, sample):
         img = sample["cam0c"]
         audio_tuple, _ = sample["audio"]
         audio_arr = np.array(list(audio_tuple), dtype=np.float64).T
@@ -67,11 +75,14 @@ class KNNAudioImage(object):
         self.audio_window.append(audio_arr)
 
         if len(self.image_window) < self.num_cat + 1:
-            return None
+            return False
         else:
             self.image_window.popleft()
             self.audio_window.popleft()
 
+        return True
+
+    def get_features(self, sample):
         img_input = list(self.image_window)
         audio_input = np.concatenate(list(self.audio_window), axis=1)
         sample_prepped = self.img_audio_prep(img_input, audio_input, predict=True)
@@ -83,12 +94,15 @@ class KNNAudioImage(object):
         return sample_features
 
     def predict(self, sample):
+        window_full = self.update_window(sample)
+
+        # ensure input is a video for AVID model
+        if not window_full:
+            print(f"returning to starting position")
+            return self.start_position
+
         if self.H == 1:
             sample_features = self.get_features(sample)
-
-            if sample_features is None:
-                print(f"returning to starting position")
-                return self.start_position
 
             knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
 
@@ -106,15 +120,11 @@ class KNNAudioImage(object):
                 return_action = np.zeros(7)
                 for i in range(self.k):
                     return_action += weights[i] * k_actions[i]
+
         else:  # open loop
             # begin trajectory if previous horizon reached, or first trajectory
             if self.traj_id is None or self.action_idx >= self.H:
                 sample_features = self.get_features(sample)
-
-                if sample_features is None:
-                    print(f"returning to starting position")
-                    return self.start_position
-
                 knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
                 self.traj_id, self.start_action_idx = self.traj_ids[knn_idx[0][0]]
                 self.action_idx = 0
@@ -151,12 +161,14 @@ def _init_agent_from_config(config, device="cpu"):
         backbone_cfg=config.agent.backbone_cfg,
         extract_dir=config.data.extract_dir,
         H=config.knn.H,
-        pretraining=config.agent.pretraining
+        pretraining=config.agent.pretraining,
     )
     return knn_agent, transforms
 
+
 def main():
     pass
+
 
 if __name__ == "__main__":
     main()

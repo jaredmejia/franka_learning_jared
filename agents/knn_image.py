@@ -25,7 +25,15 @@ from utils import misc
 
 
 class KNNImage(KNNAudioImage):
-    def __init__(self, k, backbone_cfg, extract_dir, H=1, pretraining='finetuned', device="cuda:0"):
+    def __init__(
+        self,
+        k,
+        backbone_cfg,
+        extract_dir,
+        H=1,
+        pretraining="finetuned",
+        device="cuda:0",
+    ):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
         print(f"cfg save paths: {cfg.save_path}")
@@ -48,15 +56,18 @@ class KNNImage(KNNAudioImage):
             [0.142, 0.613, -0.1899, -0.6505, 0.0947, -0.3041, 0.522]
         )
 
-    def get_features(self, sample):
+    def update_window(self, sample):
         img = sample["cam0c"]
         self.image_window.append(img)
 
         if len(self.image_window) < self.num_cat + 1:
-            return None
+            return False
         else:
             self.image_window.popleft()
 
+        return True
+
+    def get_features(self, sample):
         img_input = list(self.image_window)
         sample_prepped = self.img_prep(img_input, predict=True)
 
@@ -74,11 +85,11 @@ def identity_transform(img):
 def _init_agent_from_config(config, device="cpu"):
     print("Loading KNNImage................")
     transforms = identity_transform
-    finetuned = config.agent.finetuned.lower() == 'true'
+    finetuned = config.agent.finetuned.lower() == "true"
     knn_agent = KNNImage(
         k=config.knn.k,
         backbone_cfg=config.agent.backbone_cfg,
         extract_dir=config.data.extract_dir,
-        H=config.knn.H
+        H=config.knn.H,
     )
     return knn_agent, transforms
