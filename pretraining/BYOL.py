@@ -2,6 +2,7 @@ import numpy as np
 import os
 import sys
 import torch
+import torch.nn as nn
 
 from torchaudio import transforms as AT
 from torchvision import models
@@ -23,13 +24,49 @@ from byol_a.models import AudioNTT2020
 DEVICE = torch.device("cuda")
 
 
+class MultiModalBYOL(nn.Module):
+    def __init__(self, image_encoder, audio_encoder):
+        super().__init__()
+        self.image_encoder = image_encoder
+        self.audio_encoder = audio_encoder
+
+    def forward(self, data):
+        assert data["image"] is not None, "Expected image data, but video data is None"
+        assert data["audio"] is not None, "Expected audio data, but audio data is None"
+
+        bs = data["image"].shape[0]
+
+        img_emb = self.image_encoder(data["image"]).reshape(bs, -1)
+        audio_emb = self.audio_encoder(data["audio"]).reshape(bs, -1)
+        cat_emb = torch.cat((img_emb, audio_emb), 1)
+
+        return cat_emb
+
+
+class BYOLWrapper(nn.Module):
+    def __init__(self, byol_model, modality="image"):
+        super().__init__()
+        self.byol_model = byol_model
+        self.modality = modality
+
+    def forward(self, data):
+        assert data[self.modality] is not None, f"Expected {self.modality} data, but video data is None"
+
+        return self.byol_model(data[self.modality])
+
+
 def _load_encoder(model_name, cfg):
+    # TODO: make sure every case returns an encoder func that handles the input data dict properly
+    # TODO: give option to put model on specified device
+    # TODO: give option to put data_t on specified device
     model = _load_model(model_name, cfg)
 
     if model_name == "byol":
-        encoder = model.online_encoder
+        encoder = BYOLWrapper(model.online_encoder, modality="image")
     elif model_name == "byol-a":
-        encoder = model
+        encoder = BYOLWrapper(model, modality="audio")
+    elif model_name == "byol-img-audio":
+        encoder = MultiModalBYOL(model["image"].online_encoder, model["audio"])
     else:
         print("Model not implemented")
         raise NotImplementedError
@@ -99,7 +136,23 @@ def _load_transforms(model_name, cfg):
         print("Model not implemented")
         raise NotImplementedError
 
-    return transforms
+    def transform_func(data):
+        data_t = {}
+        if transforms["image"] is not None:
+            assert (
+                data["image"] is not None
+            ), "Expected image data but image data was None"
+
+            data_t["image"] = transforms["image"](data["image"])
+
+        if transforms["audio"] is not None:
+            assert (
+                data["audio"] is not None
+            ), "Expected audio data but audio data was None"
+
+            data_t["audio"] = transforms["audio"](data["audio"])
+
+    return transform_func
 
 
 def expand_greyscale(t):

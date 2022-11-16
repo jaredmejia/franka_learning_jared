@@ -20,9 +20,13 @@ MODEL_LIST = [
     "gdt",
 ]
 
+__all__ = ["load_encoder", "load_transforms"]
+
 
 def load_encoder(encoder_name, cfg):
-    assert encoder_name in MODEL_LIST + AUDIO_MODEL_LIST + VISUAL_MODEL_LIST
+    assert (
+        encoder_name in MODEL_LIST + AUDIO_MODEL_LIST + VISUAL_MODEL_LIST
+    ), f"Model {encoder_name} not implemented"
 
     # ============================================================
     # AVID
@@ -47,7 +51,9 @@ def load_encoder(encoder_name, cfg):
 
 
 def load_transforms(encoder_name, cfg):
-    assert encoder_name in MODEL_LIST + AUDIO_MODEL_LIST + VISUAL_MODEL_LIST
+    assert (
+        encoder_name in MODEL_LIST + AUDIO_MODEL_LIST + VISUAL_MODEL_LIST
+    ), f"Model {encoder_name} transforms not implemented"
 
     # ============================================================
     # AVID
