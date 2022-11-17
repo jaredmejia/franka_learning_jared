@@ -145,22 +145,4 @@ def _load_transforms(model_name, cfg):
         transforms["audio"] = audio_transforms
         transforms["video"] = video_transforms
 
-    def transform_func(data):
-        data_t = {}
-        if transforms["video"] is not None:
-            assert (
-                data["video"] is not None
-            ), "Expected video data but video data was None"
-
-            data_t["video"] = transforms["video"](data["video"])
-
-        if transforms["audio"] is not None:
-            assert (
-                data["audio"] is not None
-            ), "Expected audio data but audio data was None"
-
-            data_t["audio"] = transforms["audio"](data["audio"])
-
-        return data_t
-
-    return transform_func
+    return transforms

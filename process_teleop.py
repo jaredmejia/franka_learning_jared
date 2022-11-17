@@ -75,7 +75,7 @@ class TeleopDataset(Dataset):
         else:
             audio_data = None
 
-        if len(img_list) == 1:
+        if self.num_images_cat == 1:
             img_data = img_list[0]
             video_data = None
         else:

@@ -1,3 +1,5 @@
+from functools import partial
+
 from .AVID import AVID_MODELS
 
 AUDIO_MODEL_LIST = ["avid-ft-audio", "byol-a", "byol-a-ft", "byol-a-scratch"]
@@ -75,4 +77,24 @@ def load_transforms(encoder_name, cfg):
         print("Model not implemented")
         raise NotImplementedError
 
-    return _load_transforms(encoder_name, cfg)
+    transforms = _load_transforms(encoder_name, cfg)
+    transforms_f = partial(transform_func, transforms=transforms)
+
+    return transforms_f
+
+
+def transform_func(data, transforms, inference=False):
+    data_t = {}
+    for modality in transforms.keys():
+        if transforms[modality] is not None:
+
+            assert (
+                data[modality] is not None
+            ), f"Expected {modality} data but {modality} data was None"
+
+            data_t[modality] = transforms[modality](data[modality])
+
+            if inference:
+                data_t[modality] = data_t[modality].unsqueeze(0)
+
+    return data_t

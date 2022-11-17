@@ -14,7 +14,7 @@ from tqdm import tqdm
 from scipy import special
 
 sys.path.insert(1, "/home/vdean/franka_learning_jared")
-from knn_teleop_features import load_model
+from pretraining import *
 
 sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
 # avid-glove imports
@@ -29,17 +29,14 @@ class KNNAudioImage(object):
         k,
         backbone_cfg,
         extract_dir,
+        encoder_name,
         H=1,
-        pretraining="finetuned",
         device="cuda:0",
     ):
         # loading backbone
         cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
-        model = load_model(cfg, pretraining)
-        self.fe_model = get_feature_extractor(model.model, unimodal=False).to(device)
-        self.img_audio_prep = LivePrep(
-            db_cfg=cfg.dataset, image_paths=None, device=device
-        )
+        self.encoder = load_encoder(encoder_name, cfg)
+        self.transforms = load_transforms(encoder_name, cfg)
 
         self.KDTree, self.actions, self.traj_ids = self.load_expert(extract_dir)
         self.k = k
@@ -52,7 +49,7 @@ class KNNAudioImage(object):
         self.image_window = deque([])
         self.audio_window = deque([])
         self.start_position = np.array(
-            [0.142, 0.613, -0.1899, -0.6505, 0.0947, -0.3041, 0.522]
+            [-0.3842, -0.5922, 0.0449, -2.2487, 0.1340, 0.2287, 1.1580]
         )
 
     def load_expert(self, extract_dir):
@@ -82,16 +79,21 @@ class KNNAudioImage(object):
 
         return True
 
-    def get_features(self, sample):
+    def get_embedding(self, sample):
         img_input = list(self.image_window)
         audio_input = np.concatenate(list(self.audio_window), axis=1)
-        sample_prepped = self.img_audio_prep(img_input, audio_input, predict=True)
 
-        self.fe_model.eval()
+        if self.num_cat > 1:
+            data = {"video": img_input, "image": None, "audio": audio_input}
+        else:
+            data = {"video": None, "image": img_input[0], "audio": audio_input}
+        data_t = self.transforms(data, inference=True)
+
+        self.encoder.eval()
         with torch.no_grad():
-            features, _, _ = self.fe_model(sample_prepped)
-        sample_features = features.detach().cpu()
-        return sample_features
+            emb = self.encoder(data_t)
+        embedding = emb.detach()
+        return embedding.cpu()
 
     def predict(self, sample):
         window_full = self.update_window(sample)
@@ -102,9 +104,9 @@ class KNNAudioImage(object):
             return self.start_position
 
         if self.H == 1:
-            sample_features = self.get_features(sample)
+            embedding = self.get_embedding(sample)
 
-            knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
+            knn_dis, knn_idx = self.KDTree.query(embedding, k=self.k)
 
             if self.k == 1:
                 traj_id, traj_sub_idx = self.traj_ids[knn_idx[0][0]]
@@ -124,8 +126,8 @@ class KNNAudioImage(object):
         else:  # open loop
             # begin trajectory if previous horizon reached, or first trajectory
             if self.traj_id is None or self.action_idx >= self.H:
-                sample_features = self.get_features(sample)
-                knn_dis, knn_idx = self.KDTree.query(sample_features, k=self.k)
+                embedding = self.get_embedding(sample)
+                knn_dis, knn_idx = self.KDTree.query(embedding, k=self.k)
                 self.traj_id, self.start_action_idx = self.traj_ids[knn_idx[0][0]]
                 self.action_idx = 0
                 # print(f"Beginning trajectory: {self.traj_id}")
@@ -160,8 +162,8 @@ def _init_agent_from_config(config, device="cpu"):
         k=config.knn.k,
         backbone_cfg=config.agent.backbone_cfg,
         extract_dir=config.data.extract_dir,
+        encoder_name=config.agent.encoder_name,
         H=config.knn.H,
-        pretraining=config.agent.pretraining,
     )
     return knn_agent, transforms
 

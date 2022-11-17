@@ -50,7 +50,9 @@ class BYOLWrapper(nn.Module):
         self.modality = modality
 
     def forward(self, data):
-        assert data[self.modality] is not None, f"Expected {self.modality} data, but video data is None"
+        assert (
+            data[self.modality] is not None
+        ), f"Expected {self.modality} data, but video data is None"
 
         return self.byol_model(data[self.modality])
 
@@ -136,23 +138,7 @@ def _load_transforms(model_name, cfg):
         print("Model not implemented")
         raise NotImplementedError
 
-    def transform_func(data):
-        data_t = {}
-        if transforms["image"] is not None:
-            assert (
-                data["image"] is not None
-            ), "Expected image data but image data was None"
-
-            data_t["image"] = transforms["image"](data["image"])
-
-        if transforms["audio"] is not None:
-            assert (
-                data["audio"] is not None
-            ), "Expected audio data but audio data was None"
-
-            data_t["audio"] = transforms["audio"](data["audio"])
-
-    return transform_func
+    return transforms
 
 
 def expand_greyscale(t):
