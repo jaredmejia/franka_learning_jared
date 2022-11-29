@@ -77,6 +77,7 @@ if os.path.isfile(args.output_pickle_name):
 
 list_of_demos = []
 count_dp = 0
+num_valid = 0
 for demo in sorted(name_of_demos):
     print(demo)
     traj_reward, valid_data = get_reward(demo)
@@ -89,6 +90,7 @@ for demo in sorted(name_of_demos):
     print("Reward for traj: ", traj_reward)
     data_len = len(valid_data)
     print(f"Found {data_len} valid datapoints.")
+    num_valid += data_len
 
     # Extract info
     jointstates = np.array(
@@ -153,6 +155,7 @@ for demo in sorted(name_of_demos):
 
     list_of_demos.append(info)
     count_dp += len(valid_data)
+print(f"Total number of valid datapoints: {num_valid}")
 print(f"Num good demos: {len(list_of_demos)}")
 with open(args.output_pickle_name, "wb") as f:
     pickle.dump(list_of_demos, f)

@@ -9,13 +9,10 @@ import torch
 import yaml
 
 from PIL import Image
-from pretraining import *
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
-
-from utils import misc
+from pretraining import *
 
 
 parser = argparse.ArgumentParser(
@@ -37,7 +34,7 @@ parser.add_argument(
     type=int,
     help="If greater than 1, combines multiple images/audio to emulate video (as opposed to single frame passed to model)",
 )
-parser.add_argument("--batch_size", default=256)
+parser.add_argument("--batch_size", default=128)
 parser.add_argument(
     "--output_dir",
     required=True,
@@ -155,14 +152,14 @@ def get_embeddings(dl, model):
     with torch.no_grad():
         for i, data in enumerate(tqdm(dl)):
             emb = model(data)
-        emb_list.append(emb.detach())
+            emb_list.append(emb.detach())
     embeddings = torch.cat(emb_list, dim=0)
     return embeddings.cpu()
 
 
 def main():
     args = parser.parse_args()
-    cfg = misc.convert2namespace(yaml.safe_load(open(args.cfg)))
+    cfg = yaml.safe_load(open(args.cfg))
 
     model = load_encoder(args.model_name, cfg).to(device)
     transforms = load_transforms(args.model_name, cfg)
@@ -181,6 +178,8 @@ def main():
         img_paths, transforms, num_images_cat=args.num_images_cat
     )
 
+    print(f"length of teleop data: {len(teleop_data)}")
+
     dl = DataLoader(
         dataset=teleop_data,
         batch_size=args.batch_size,
@@ -190,6 +189,7 @@ def main():
 
     print(f"Getting embeddings...")
     embeddings = get_embeddings(dl, model)
+    print(f"embeddings shape: {embeddings.shape}")
     print(f"Fitting KNN...")
     knn_model = KDTree(data=embeddings)
 

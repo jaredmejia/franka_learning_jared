@@ -5,21 +5,12 @@ import torch
 import torch.nn as nn
 import torchaudio
 
-AVID_DIR = "/home/vdean/jared_contact_mic/avid-glove"
+AVID_SL_DIR = "/home/vdean/jared_contact_mic/avid-glove"
 
-sys.path.insert(1, AVID_DIR)
+sys.path.insert(1, AVID_SL_DIR)
 from main import LightningModel
 from datasets import preprocessing
 
-
-AVID_MODELS = [
-    "avid-ft-audio",
-    "avid-ft-video",
-    "avid-ft",
-    "avid-no-ft",
-    "avid-scratch",
-    "avid-rand",
-]
 
 CONTACT_AUDIO_FREQ = 32000
 INPUT_AUDIO_MULTIPLIER = 2
@@ -59,7 +50,7 @@ def _load_encoder(model_name, cfg):
 def _load_model(model_name, cfg):
     if model_name == "avid-rand":
         model = LightningModel(cfg)
-        model_path = os.path.join(AVID_DIR, "models/avid/ckpt/AVID_random.pt")
+        model_path = os.path.join(AVID_SL_DIR, "models/avid/ckpt/AVID_random.pt")
         model.model.load_state_dict(torch.load(model_path))
 
     elif model_name == "avid-scratch":
@@ -69,7 +60,7 @@ def _load_model(model_name, cfg):
 
     elif model_name == "avid-no-ft":
         model = LightningModel(cfg)
-        ckp_path = os.path.join(AVID_DIR, cfg.model.checkpoint)
+        ckp_path = os.path.join(AVID_SL_DIR, cfg.model.checkpoint)
         ckp = torch.load(ckp_path, map_location="cpu")["model"]
 
         visual_model_ckp = {

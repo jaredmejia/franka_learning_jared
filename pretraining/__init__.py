@@ -1,6 +1,15 @@
 from functools import partial
 
-from .AVID import AVID_MODELS
+AVID_SL_MODELS = [
+    "avid-ft-audio",
+    "avid-ft-video",
+    "avid-ft",
+    "avid-no-ft",
+    "avid-scratch",
+    "avid-rand",
+]
+
+AVID_SSL_MODELS = ["avid-ft-d", "avid-scratch-d", "avid-pt", "avid-ft-d-video"]
 
 AUDIO_MODEL_LIST = ["avid-ft-audio", "byol-a", "byol-a-ft", "byol-a-scratch"]
 
@@ -11,6 +20,7 @@ VISUAL_MODEL_LIST = [
     "moco-generic",
     "resnet50",
     "r3m",
+    "avid-ft-d-video",
 ]
 
 MODEL_LIST = [
@@ -20,6 +30,9 @@ MODEL_LIST = [
     "avid-rand",
     "byol-audio-vid-cat",
     "gdt",
+    "avid-ft-d",
+    "avid-scratch-d",
+    "avid-pt",
 ]
 
 __all__ = ["load_encoder", "load_transforms"]
@@ -33,8 +46,11 @@ def load_encoder(encoder_name, cfg):
     # ============================================================
     # AVID
     # ============================================================
-    if encoder_name in AVID_MODELS:
-        from .AVID import _load_encoder
+    if encoder_name in AVID_SL_MODELS:
+        from .AVID_SL import _load_encoder
+
+    if encoder_name in AVID_SSL_MODELS:
+        from .AVID_SSL import _load_encoder
     # ============================================================
     # BYOL
     # ============================================================
@@ -60,9 +76,11 @@ def load_transforms(encoder_name, cfg):
     # ============================================================
     # AVID
     # ============================================================
-    if encoder_name in AVID_MODELS:
-        from .AVID import _load_transforms
+    if encoder_name in AVID_SL_MODELS:
+        from .AVID_SL import _load_transforms
 
+    elif encoder_name in AVID_SSL_MODELS:
+        from .AVID_SSL import _load_transforms
     # ============================================================
     # BYOL
     # ============================================================

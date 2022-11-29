@@ -16,11 +16,11 @@ from scipy import special
 sys.path.insert(1, "/home/vdean/franka_learning_jared")
 from pretraining import *
 
-sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
-# avid-glove imports
-from inference import LivePrep, get_feature_extractor
-from main import LightningModel
-from utils import misc
+# sys.path.insert(1, "/home/vdean/jared_contact_mic/avid-glove")
+# # avid-glove imports
+# from inference import LivePrep, get_feature_extractor
+# from main import LightningModel
+# from utils import misc
 
 
 class KNNAudioImage(object):
@@ -34,7 +34,7 @@ class KNNAudioImage(object):
         device="cuda:0",
     ):
         # loading backbone
-        cfg = misc.convert2namespace(yaml.safe_load(open(backbone_cfg)))
+        cfg = yaml.safe_load(open(backbone_cfg))
         self.encoder = load_encoder(encoder_name, cfg)
         self.transforms = load_transforms(encoder_name, cfg)
 
@@ -71,11 +71,14 @@ class KNNAudioImage(object):
         self.image_window.append(img)
         self.audio_window.append(audio_arr)
 
-        if len(self.image_window) < self.num_cat + 1:
-            return False
-        else:
-            self.image_window.popleft()
-            self.audio_window.popleft()
+        while len(self.image_window) < self.num_cat + 1:
+            self.image_window.append(img)
+            self.audio_window.append(audio_arr)
+
+            # return False
+        # else:
+        self.image_window.popleft()
+        self.audio_window.popleft()
 
         return True
 
@@ -111,7 +114,10 @@ class KNNAudioImage(object):
             if self.k == 1:
                 traj_id, traj_sub_idx = self.traj_ids[knn_idx[0][0]]
                 return_action = self.actions[traj_id][traj_sub_idx]
+                print(f"knn_idx: {knn_idx[0][0]}")
+
             else:  # weighting top k by distances
+                print(self.k)
                 k_actions = []
                 for i in knn_idx[0]:
                     traj_id, traj_sub_idx = self.traj_ids[i]
@@ -130,7 +136,7 @@ class KNNAudioImage(object):
                 knn_dis, knn_idx = self.KDTree.query(embedding, k=self.k)
                 self.traj_id, self.start_action_idx = self.traj_ids[knn_idx[0][0]]
                 self.action_idx = 0
-                # print(f"Beginning trajectory: {self.traj_id}")
+                print(f"Beginning trajectory: {self.traj_id}, {self.start_action_idx}")
 
             if (
                 self.action_idx + self.start_action_idx
