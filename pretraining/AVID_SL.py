@@ -10,10 +10,15 @@ AVID_SL_DIR = "/home/vdean/jared_contact_mic/avid-glove"
 sys.path.insert(1, AVID_SL_DIR)
 from main import LightningModel
 from datasets import preprocessing
+from utils import misc
 
 
 CONTACT_AUDIO_FREQ = 32000
+CONTACT_AUDIO_MAX = 2400
+CONTACT_AUDIO_AVG = 2061
 INPUT_AUDIO_MULTIPLIER = 2
+
+DEBUG = False
 
 
 class MultiModalAVIDEncoder(nn.Module):
@@ -48,6 +53,7 @@ def _load_encoder(model_name, cfg):
 
 
 def _load_model(model_name, cfg):
+    cfg = misc.convert2namespace(cfg)
     if model_name == "avid-rand":
         model = LightningModel(cfg)
         model_path = os.path.join(AVID_SL_DIR, "models/avid/ckpt/AVID_random.pt")
@@ -88,6 +94,7 @@ def _load_model(model_name, cfg):
 
 
 def _load_transforms(model_name, cfg):
+    cfg = misc.convert2namespace(cfg)
     transforms = {"video": None, "audio": None}
 
     video_transform = preprocessing.__dict__[cfg.dataset.video_transform](
@@ -104,23 +111,33 @@ def _load_transforms(model_name, cfg):
 
     audio_resampler = torchaudio.transforms.Resample(
         orig_freq=CONTACT_AUDIO_FREQ,
-        new_freq=cfg.dataset.audio_rate * INPUT_AUDIO_MULTIPLIER,
+        new_freq=cfg.dataset.audio_rate, # * INPUT_AUDIO_MULTIPLIER,
         dtype=torch.float64,
     )
 
     def audio_transforms(audio_arr):
         audio = torch.tensor(audio_arr)
+        audio = (audio - CONTACT_AUDIO_AVG) / CONTACT_AUDIO_MAX
         audio = audio_resampler(audio)
-        audio = audio.numpy().astype(np.int16)
-        audio = audio / np.iinfo(audio.dtype).max
+        audio = audio.numpy()
         audio, audio_rate = audio_transform(
-            audio, cfg.dataset.audio_rate * INPUT_AUDIO_MULTIPLIER
+            audio, cfg.dataset.audio_rate #* INPUT_AUDIO_MULTIPLIER
         )
         stft, stft_rate = spec_transform(audio, audio_rate)
         return stft
 
     def video_transforms(img_list):
         video = video_transform(img_list)
+
+        if DEBUG:
+            from torchvision.utils import save_image
+
+            sample_tensor = video[:, 0, :, :]
+            save_image(
+                sample_tensor,
+                "/home/vdean/franka_learning_jared/outputs/avid-ft/transformed_input/sample_img.png",
+            )
+
         return video
 
     # single image AVID version (use video version instead)

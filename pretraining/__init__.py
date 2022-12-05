@@ -9,7 +9,14 @@ AVID_SL_MODELS = [
     "avid-rand",
 ]
 
-AVID_SSL_MODELS = ["avid-ft-d", "avid-scratch-d", "avid-pt", "avid-ft-d-video"]
+AVID_SSL_MODELS = [
+    "avid-ft-d",
+    "avid-cma-ft-d",
+    "avid-scratch-d",
+    "avid-pt",
+    "avid-ft-d-video",
+    "avid-ft-d-joint",
+]
 
 AUDIO_MODEL_LIST = ["avid-ft-audio", "byol-a", "byol-a-ft", "byol-a-scratch"]
 
@@ -31,8 +38,10 @@ MODEL_LIST = [
     "byol-audio-vid-cat",
     "gdt",
     "avid-ft-d",
+    "avid-cma-ft-d",
     "avid-scratch-d",
     "avid-pt",
+    "avid-ft-d-joint",
 ]
 
 __all__ = ["load_encoder", "load_transforms"]
@@ -49,7 +58,7 @@ def load_encoder(encoder_name, cfg):
     if encoder_name in AVID_SL_MODELS:
         from .AVID_SL import _load_encoder
 
-    if encoder_name in AVID_SSL_MODELS:
+    elif encoder_name in AVID_SSL_MODELS:
         from .AVID_SSL import _load_encoder
     # ============================================================
     # BYOL

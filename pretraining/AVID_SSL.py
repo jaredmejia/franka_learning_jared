@@ -13,6 +13,10 @@ import models
 
 
 CONTACT_AUDIO_FREQ = 32000
+CONTACT_AUDIO_MAX = 2400
+CONTACT_AUDIO_AVG = 2061
+
+DEBUG = False
 
 
 class AVIDEncoderWrapper(nn.Module):
@@ -35,7 +39,7 @@ class AVIDEncoderWrapper(nn.Module):
 
 
 def _load_encoder(model_name, cfg):
-    if model_name == "avid-ft-d":
+    if model_name in ["avid-ft-d", "avid-cma-ft-d", "avid-ft-d-joint"]:
         model = _load_model(model_name, cfg)
         encoder = AVIDEncoderWrapper(model)
     else:
@@ -45,8 +49,12 @@ def _load_encoder(model_name, cfg):
 
 
 def _load_model(model_name, cfg):
-    if model_name == "avid-ft-d":
+    if model_name in ["avid-ft-d", "avid-cma-ft-d", "avid-ft-d-joint"]:
         model_cfg = cfg["model"]
+
+        if model_name == "avid-cma-ft-d":
+            del model_cfg["args"]["checkpoint"]
+
         model = models.__dict__[model_cfg["arch"]](**model_cfg["args"])
 
         ckp_path = os.path.join(
@@ -82,6 +90,9 @@ def _load_transforms(model_name, cfg):
         pad_missing=True,
     )
 
+    audio_resampler = torchaudio.transforms.Resample(
+        orig_freq=CONTACT_AUDIO_FREQ, new_freq=db_cfg["audio_fps"], dtype=torch.float64
+    )
     audio_transform = preprocessing.AudioPrep(
         trim_pad=True,
         duration=db_cfg["audio_clip_duration"],
@@ -95,19 +106,24 @@ def _load_transforms(model_name, cfg):
         normalize=True,
     )
 
-    audio_resampler = torchaudio.transforms.Resample(
-        orig_freq=CONTACT_AUDIO_FREQ, new_freq=db_cfg["audio_fps"], dtype=torch.float64
-    )
-
     def video_transforms(img_list):
         video = video_transform(img_list)
+        if DEBUG:
+            from torchvision.utils import save_image
+
+            sample_tensor = video[:, 0, :, :]
+            save_image(
+                sample_tensor,
+                "/home/vdean/franka_learning_jared/outputs/avid-cma-ft-d/transformed_input/sample_img-4.png",
+            )
+
         return video
 
     def audio_transforms(audio_arr):
         audio = torch.tensor(audio_arr)
+        audio = (audio - CONTACT_AUDIO_AVG) / CONTACT_AUDIO_MAX
         audio = audio_resampler(audio)
-        audio = audio.numpy().astype(np.int16)
-        audio = audio / np.iinfo(audio.dtype).max
+        audio = audio.numpy()
 
         # during training used video_clip_duration size audio
         audio, audio_rate = audio_transform(

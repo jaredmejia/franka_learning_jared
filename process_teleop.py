@@ -34,6 +34,7 @@ parser.add_argument(
     type=int,
     help="If greater than 1, combines multiple images/audio to emulate video (as opposed to single frame passed to model)",
 )
+parser.add_argument("--num_audio_cat", default=32, type=int)
 parser.add_argument("--batch_size", default=128)
 parser.add_argument(
     "--output_dir",
@@ -45,10 +46,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class TeleopDataset(Dataset):
-    def __init__(self, img_paths, transforms, num_images_cat=8, unimodal=False):
+    def __init__(
+        self, img_paths, transforms, num_images_cat=8, num_audio_cat=32, unimodal=False
+    ):
         self.img_paths = img_paths
         self.transforms = transforms
         self.num_images_cat = num_images_cat
+        self.num_audio_cat = num_audio_cat
         self.unimodal = unimodal
 
     def __len__(self):
@@ -57,9 +61,10 @@ class TeleopDataset(Dataset):
     def __getitem__(self, idx):
         img_list = []
         txt_list = []
-        for img_path in self.img_paths[idx]:
-            img = Image.open(img_path)
-            img_list.append(img)
+        for i, img_path in enumerate(self.img_paths[idx]):
+            if i >= len(self.img_paths[idx]) - self.num_images_cat:
+                img = Image.open(img_path)
+                img_list.append(img)
 
             if not self.unimodal:
                 txt_path = f"{img_path[:-4]}txt"
@@ -118,7 +123,7 @@ def multi_collate(batch):
     return batched_data
 
 
-def get_teleop_data(teleop_paths, teleop_dir, num_images_cat=8):
+def get_teleop_data(teleop_paths, teleop_dir, num_audio_cat=32):
     actions = {}
     traj_ids = []
     img_paths = []
@@ -127,19 +132,21 @@ def get_teleop_data(teleop_paths, teleop_dir, num_images_cat=8):
         traj_img_paths = [
             os.path.join(data_path, img_file) for img_file in path["cam0c"]
         ]
+        # actions[path["traj_id"]] = []
 
-        for i in range(num_images_cat, len(traj_img_paths)):
+        for i in range(num_audio_cat, len(traj_img_paths)):
             # taking chunks of size num_images_cat
-            img_path_cat = traj_img_paths[i - num_images_cat : i]
+            img_path_cat = traj_img_paths[i - num_audio_cat : i]
             img_paths.append(img_path_cat)
-            traj_ids.append((path["traj_id"], i - num_images_cat))
+            traj_ids.append((path["traj_id"], i - num_audio_cat))
+            # actions[path["traj_id"]].append(path["actions"][i])/
 
-        actions[path["traj_id"]] = path["actions"][num_images_cat:]
+        actions[path["traj_id"]] = path["actions"][num_audio_cat:]
 
-        assert len(actions[path["traj_id"]]) == len(traj_img_paths) - num_images_cat, (
+        assert len(actions[path["traj_id"]]) == len(traj_img_paths) - num_audio_cat, (
             f"Number of actions does not match number of images for trajectory {path['traj_id']}:"
             f"\n\tnum actions: {len(actions[path['traj_id']])}"
-            f"\n\tnum images: {len(traj_img_paths) - num_images_cat}"
+            f"\n\tnum images: {len(traj_img_paths) - num_audio_cat}"
         )
 
     return actions, traj_ids, img_paths
@@ -161,6 +168,8 @@ def main():
     args = parser.parse_args()
     cfg = yaml.safe_load(open(args.cfg))
 
+    print(f"device: {device}")
+
     model = load_encoder(args.model_name, cfg).to(device)
     transforms = load_transforms(args.model_name, cfg)
 
@@ -168,14 +177,18 @@ def main():
         teleop_paths = pickle.load(f)
 
     actions, traj_ids, img_paths = get_teleop_data(
-        teleop_paths, args.teleop_dir, args.num_images_cat
+        teleop_paths, args.teleop_dir, args.num_audio_cat
     )
     print(f"Total number of samples: {len(img_paths)}")
     print(f"Num action trajectories: {len(actions)}")
     print(f"Num images cat: {args.num_images_cat}")
+    print(f"Num audio cat: {args.num_audio_cat}")
 
     teleop_data = TeleopDataset(
-        img_paths, transforms, num_images_cat=args.num_images_cat
+        img_paths,
+        transforms,
+        num_images_cat=args.num_images_cat,
+        num_audio_cat=args.num_audio_cat,
     )
 
     print(f"length of teleop data: {len(teleop_data)}")
@@ -209,6 +222,11 @@ def main():
     print(f"Saving traj_ids to {traj_ids_fn}")
     with open(traj_ids_fn, "wb") as f:
         pickle.dump(traj_ids, f)
+
+    image_paths_fn = os.path.join(args.output_dir, "image_paths.pkl")
+    print(f"Saving image_paths to {image_paths_fn}")
+    with open(image_paths_fn, "wb") as f:
+        pickle.dump(img_paths, f)
 
 
 if __name__ == "__main__":

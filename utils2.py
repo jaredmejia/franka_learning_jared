@@ -51,6 +51,7 @@ def validate_images(path, csv_data):
         print(
             f"DUPLICATE IMAGES - len(valid_data): {len(valid_data)} - len(set): {len(valid_data[f'cam{0}c'].drop_duplicates(inplace=False))}"
         )
+    valid_data = valid_data.drop_duplicates(subset="cam0c", keep="first")
 
     print(len(valid_data))
     if len(valid_data) < 10:  # Constraint on trajectory length
